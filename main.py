@@ -63,21 +63,24 @@ def codice_errato():
     sleep(2000)
     display.display_clear()
 
-
-while True:
+def leggi_tastierino():
+    checktastierino=False
     for j in range (4):
         digitalWrite(columns[j], LOW)
         for i in range (4):
             if (digitalRead(rows[i])== LOW):
                 while (digitalRead(rows[i])==LOW):
                     sleep(1)
+                #display.display_password_update(len(s))
                 echo_timer.one_shot(5000,buffer)
                 if(keymap[i][j]=='#'):
                     print("Stringa inviata:",s)
                     if(s==password):
                         codice_corretto()
+                        checktastierino=True
                     else:
                         codice_errato()
+                        checktastierino=False
                     s=""
                 else:
                     if(keymap[i][j]=='C'):
@@ -87,6 +90,12 @@ while True:
                        s+=keymap[i][j]
                     print (s)
         digitalWrite(columns[j], HIGH)
+    return checktastierino
+
+
+while True:
+    leggi_tastierino()
+
 
 
 
