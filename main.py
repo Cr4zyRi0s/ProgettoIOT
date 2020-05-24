@@ -80,9 +80,11 @@ while True:
     elif state == 1:
         access = leggi_tastierino()
     elif state == 2:
-        pass
+        display.display_timer(int(timer_serratura.get() / 1000))
     elif state == 3:
         avoidance.update()
+        display.display_timer(int(timer_porta.get() / 1000))
+        
         if avoidance.obstacle:
             timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
     elif state == 4:
@@ -196,11 +198,13 @@ def impostaStatoDue():
 def impostaStatoTre():
     state = 3
     
+    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
     state = 4
     
+    display.display_door_closing()
     portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
     
     

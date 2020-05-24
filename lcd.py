@@ -2,10 +2,9 @@ import lcd1602_I2C
 
 class SmartDoorLCD:
     
-    lcd = None
-    
     def __init__(self,address):
         self.lcd = lcd1602_I2C.lcd(address) 
+        self.seconds = 0
     
     def display_access(self, access_result):
         self.lcd.lcd_clear()
@@ -26,6 +25,15 @@ class SmartDoorLCD:
             string += "*"
         string += "_"
         self.lcd.lcd_display_string(string,2)
+        
+    def display_door_closing(self):
+        self.lcd.lcd_clear()
+        self.lcd.lcd_display_string("Chiusura",1)
+        self.lcd.lcd_display_string("Porta",2)
+        
+    def display_timer(self, seconds):
+        if self.seconds != seconds:
+            pass
     
     def display_clear(self):
         self.lcd.lcd_clear()
