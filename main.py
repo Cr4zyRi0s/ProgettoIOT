@@ -24,7 +24,6 @@ TEMPO_PORTA_CHIUSURA = 10.0
 TEMPO_TASTIERINO_INSERIMENTO = 5.0
 
 
-
 state = 0
 
 #Flags
@@ -33,17 +32,18 @@ tempo_serratura_finito = False
 tempo_porta_finito = False
 
 display=lcd.SmartDoorLCD(I2C0)
-'''
-portaServo = servo.Servo(D19.PWM,500,2500,2350,20000)
-portaServo.attach()
-'''
-serraturaServo = servo.Servo(D19.PWM,500,2500,2350,20000)
+
+serraturaServo = servo.Servo(D4.PWM,500,2500,2350,20000)
 serraturaServo.attach()
 
-#ultrasonic = hcsr04(triggerpin, echopin)
-distanzaUltraSonic = 0.0
-#thread(thread_ultrasonic())
+portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
+portaServo.attach()
 
+ultrasonic = hcsr04(D15, D2)
+distanzaUltraSonic = 0.0
+thread(thread_ultrasonic())
+
+avoidance = avoidance.AvoidanceSensor(D0)
 
 timer_tastierino = timers.timer()
 timer_serratura = timers.timer()
@@ -59,11 +59,11 @@ keymap =[
     ['7','8','9','C'],
     ['*','0','#','D']
     ]
-rows=[D23,D22,D21,D5]
-columns=[D16,D4,D0,D2]
+rows=[D23,D22,D21,D19]
+columns=[D18,D5,D17,D16]
 
 #Setup Buzzer
-pin_buzzer=D13
+pin_buzzer=D27
 pinMode(pin_buzzer,OUTPUT)
 
 for j in range (4):
@@ -82,8 +82,9 @@ while True:
     elif state == 2:
         pass
     elif state == 3:
-        
-        pass
+        avoidance.update()
+        if avoidance.obstacle:
+            timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
     elif state == 4:
         pass
     checkTransizioni()
@@ -106,6 +107,7 @@ def checkTransizioni():
             impostaStatoUno()
             return
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
+            timer_serratura.clear()
             impostaStatoTre()
             return
     elif state == 3:
@@ -193,10 +195,12 @@ def impostaStatoDue():
     
 def impostaStatoTre():
     state = 3
+    
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
     state = 4
+    
     portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
     
     
