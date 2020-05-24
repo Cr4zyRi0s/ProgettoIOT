@@ -1,13 +1,21 @@
 # Membrane switch
 # Created at 2020-04-28 15:28:37.207189
+from servo import servo
 import timers
 import streams 
-from servo import servo
 import pwm
+
+from hcsr04 import hcsr04
 import lcd
 import avoidance
 
 streams.serial()
+
+PORTA_SERVO_APERTO = 90
+PORTA_SERVO_CHIUSO = 0
+SERRATURA_SERVO_APERTO = 90
+SERRATURA_SERVO_CHIUSO = 0
+
 
 state = 0
 
@@ -21,10 +29,17 @@ portaServo.attach()
 serraturaServo = servo.Servo(D19.PWM,500,2500,2350,20000)
 serraturaServo.attach()
 
-ultrasonic = 
+#ultrasonic = hcsr04(triggerpin, echopin)
+distanzaUltraSonic = 0.0
+#thread(thread_ultrasonic())
 
-echo_timer=timers.timer()
 
+timer_tastierino = timers.timer()
+timer_serratura = timers.timer()
+timer_porta = timers.timer()
+
+
+#Setup tastierino
 s=""
 password="1234"
 keymap =[
@@ -40,8 +55,47 @@ columns=[D16,D4,D0,D2]
 pin_buzzer=D13
 pinMode(pin_buzzer,OUTPUT)
 
+for j in range (4):
+    pinMode(columns[j],OUTPUT)
+    digitalWrite(columns[j],HIGH)
+for i in range (4):
+    pinMode(rows[i],INPUT_PULLUP)
+    digitalWrite(rows[i],HIGH)
 
     
+while True:
+    if state == 0:
+        pass
+    elif state == 1:
+        access = leggi_tastierino()
+    elif state == 2:
+        pass
+    elif state == 3:
+        pass
+    elif state == 4:
+        pass
+    checkTransizioni()
+    
+
+def checkTransizioni():
+    if state == 0:
+        if distanzaUltraSonic >= 5.0:
+            impostaStatoTre()
+        else:
+            impostaStatoUno()
+        return
+    elif state == 1:
+        if access:
+            impostaStatoDue()
+            return
+    elif state == 2:
+        pass
+    elif state == 3:
+        pass
+    elif state == 4:
+        pass
+
+
 def buffer():
     global s
     print("Resetto buffer")
@@ -49,10 +103,6 @@ def buffer():
 
 def codice_corretto():
     print("Codice corretto")
-    
-    display.display_access(1)
-    #Sblocco serratura
-    serraturaServo.moveToDegree(90)
     #Suono apertura corretta
     pwm.write(pin_buzzer,2000,1000,MICROS)
     sleep(500)
@@ -76,7 +126,7 @@ def leggi_tastierino():
                 while (digitalRead(rows[i])==LOW):
                     sleep(1)
                 #display.display_password_update(len(s))
-                echo_timer.one_shot(5000,buffer)
+                timer_tastierino.one_shot(5000,buffer)
                 if(keymap[i][j]=='#'):
                     print("Stringa inviata:",s)
                     if(s==password):
@@ -96,47 +146,25 @@ def leggi_tastierino():
         digitalWrite(columns[j], HIGH)
     return checktastierino
 
-for j in range (4):
-    pinMode(columns[j],OUTPUT)
-    digitalWrite(columns[j],HIGH)
-for i in range (4):
-    pinMode(rows[i],INPUT_PULLUP)
-    digitalWrite(rows[i],HIGH)
+def thread_ultrasonic():
+    while True:
+        global distanzaUltraSonic = ultrasonic.getDistanceCM()
+
+def impostaStatoUno():
+    state = 1
+    display.display_password_prompt()
+    serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
+    portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
-while True:
-    if state == 0:
-        pass
-    elif state == 1:
-        access = leggi_tastierino()
-    elif state == 2:
-        pass
-    elif state == 3:
-        pass
-    elif state == 4:
-        pass
-    checkTransizioni()
+def impostaStatoDue():
+    state = 2
+    display.display_access(1)
+    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
     
-
-def checkTransizioni():
-    if state == 0:
-        pass
-    elif state == 1:
-        if access:
-            state = 2
-            return
-    elif state == 2:
-        pass
-    elif state == 3:
-        pass
-    elif state == 4:
-        pass
-
-
-
-
-
-
-
-
+def impostaStatoTre():
+    state = 3
+    
+def impostaStatoQuattro():
+    state = 4
 
 

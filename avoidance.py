@@ -1,9 +1,3 @@
-#CODICE AVOIDANCE PROVA                                                                                                                                                         import streams
-streams.serial()
-
-
-
-
 class AvoidanceSensor:
     pin = 0
     obstacle = False
