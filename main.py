@@ -11,15 +11,26 @@ import avoidance
 
 streams.serial()
 
+DISTANZA_APERTURA_PORTA = 5.0
+
 PORTA_SERVO_APERTO = 90
 PORTA_SERVO_CHIUSO = 0
+
 SERRATURA_SERVO_APERTO = 90
 SERRATURA_SERVO_CHIUSO = 0
+
+TEMPO_SERRATURA_CHIUSURA = 10.0
+TEMPO_PORTA_CHIUSURA = 10.0
+TEMPO_TASTIERINO_INSERIMENTO = 5.0
+
 
 
 state = 0
 
+#Flags
 access = False
+tempo_serratura_finito = False
+tempo_porta_finito = False
 
 display=lcd.SmartDoorLCD(I2C0)
 '''
@@ -71,6 +82,7 @@ while True:
     elif state == 2:
         pass
     elif state == 3:
+        
         pass
     elif state == 4:
         pass
@@ -79,7 +91,7 @@ while True:
 
 def checkTransizioni():
     if state == 0:
-        if distanzaUltraSonic >= 5.0:
+        if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
             impostaStatoTre()
         else:
             impostaStatoUno()
@@ -89,14 +101,23 @@ def checkTransizioni():
             impostaStatoDue()
             return
     elif state == 2:
-        pass
+        if tempo_serratura_finito:
+            global tempo_serratura_finito = False
+            impostaStatoUno()
+            return
+        if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
+            impostaStatoTre()
+            return
     elif state == 3:
-        pass
+        if tempo_porta_finito:
+            global tempo_porta_finito = False
+            impostaStatoQuattro()
+            return
     elif state == 4:
-        pass
+        if distanzaUltraSonic < DISTANZA_APERTURA_PORTA:
+            impostaStatoUno()
 
-
-def buffer():
+def clearBuffer():
     global s
     print("Resetto buffer")
     s=""
@@ -126,7 +147,7 @@ def leggi_tastierino():
                 while (digitalRead(rows[i])==LOW):
                     sleep(1)
                 #display.display_password_update(len(s))
-                timer_tastierino.one_shot(5000,buffer)
+                timer_tastierino.one_shot(TEMPO_TASTIERINO_INSERIMENTO,clearBuffer)
                 if(keymap[i][j]=='#'):
                     print("Stringa inviata:",s)
                     if(s==password):
@@ -150,21 +171,36 @@ def thread_ultrasonic():
     while True:
         global distanzaUltraSonic = ultrasonic.getDistanceCM()
 
+def notifica_tempo_serratura():
+    global tempo_serratura_finito = True
+
+def notifica_tempo_porta():
+    global tempo_porta_finito = True
+
 def impostaStatoUno():
     state = 1
+    
     display.display_password_prompt()
     serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
-    portaServo.moveToDegree(PORTA_SERVO_APERTO)
+    #portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
     
 def impostaStatoDue():
     state = 2
+    
     display.display_access(1)
     serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
+    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
     
 def impostaStatoTre():
     state = 3
-    
+    timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
+
 def impostaStatoQuattro():
     state = 4
+    portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
+    
+    
+    
+    
 
 
