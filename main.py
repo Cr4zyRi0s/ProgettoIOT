@@ -7,16 +7,24 @@ import pwm
 import lcd
 import avoidance
 
+streams.serial()
+
+state = 0
+
+access = False
 
 display=lcd.SmartDoorLCD(I2C0)
-streams.serial()
+'''
+portaServo = servo.Servo(D19.PWM,500,2500,2350,20000)
+portaServo.attach()
+'''
+serraturaServo = servo.Servo(D19.PWM,500,2500,2350,20000)
+serraturaServo.attach()
+
+ultrasonic = 
+
 echo_timer=timers.timer()
-MyServo=servo.Servo(D19.PWM,500,2500,2350,20000)
-rows=[D23,D22,D21,D5]
-MyServo.attach()
-columns=[D16,D4,D0,D2]
-pin_buzzer=D13
-pinMode(pin_buzzer,OUTPUT)
+
 s=""
 password="1234"
 keymap =[
@@ -25,34 +33,30 @@ keymap =[
     ['7','8','9','C'],
     ['*','0','#','D']
     ]
+rows=[D23,D22,D21,D5]
+columns=[D16,D4,D0,D2]
 
-print(keymap)
-    
-for j in range (4):
-    
-    pinMode(columns[j],OUTPUT)
-    digitalWrite(columns[j],HIGH)
-    
-for i in range (4):
-    pinMode(rows[i],INPUT_PULLUP)
-    digitalWrite(rows[i],HIGH)
+#Setup Buzzer
+pin_buzzer=D13
+pinMode(pin_buzzer,OUTPUT)
+
+
     
 def buffer():
     global s
     print("Resetto buffer")
     s=""
 
-
 def codice_corretto():
     print("Codice corretto")
+    
     display.display_access(1)
-    MyServo.moveToDegree(90)
-    #suono apertura corretta
+    #Sblocco serratura
+    serraturaServo.moveToDegree(90)
+    #Suono apertura corretta
     pwm.write(pin_buzzer,2000,1000,MICROS)
     sleep(500)
     pwm.write(pin_buzzer,0,0,MICROS)
-
-
 
 def codice_errato():
     print("Codice errato")
@@ -92,12 +96,40 @@ def leggi_tastierino():
         digitalWrite(columns[j], HIGH)
     return checktastierino
 
-
+for j in range (4):
+    pinMode(columns[j],OUTPUT)
+    digitalWrite(columns[j],HIGH)
+for i in range (4):
+    pinMode(rows[i],INPUT_PULLUP)
+    digitalWrite(rows[i],HIGH)
+    
 while True:
-    leggi_tastierino()
+    if state == 0:
+        pass
+    elif state == 1:
+        access = leggi_tastierino()
+    elif state == 2:
+        pass
+    elif state == 3:
+        pass
+    elif state == 4:
+        pass
+    checkTransizioni()
+    
 
-
-
+def checkTransizioni():
+    if state == 0:
+        pass
+    elif state == 1:
+        if access:
+            state = 2
+            return
+    elif state == 2:
+        pass
+    elif state == 3:
+        pass
+    elif state == 4:
+        pass
 
 
 
