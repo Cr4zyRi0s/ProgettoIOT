@@ -32,8 +32,12 @@ class SmartDoorLCD:
         self.lcd.lcd_display_string("Porta",2)
         
     def display_timer(self, seconds):
-        if self.seconds != seconds:
-            pass
+         if self.seconds == seconds:
+                return
+            if seconds < 10:
+                self.lcd.lcd_display_string_pos("0" + str(seconds), 2, 14)
+            else:
+                self.lcd.lcd_display_string_pos(str(seconds), 2, 14)
     
     def display_clear(self):
         self.lcd.lcd_clear()

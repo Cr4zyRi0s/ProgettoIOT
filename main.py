@@ -9,7 +9,18 @@ import hcsr04
 import lcd
 import avoidance
 
+from mqtt import mqtt
+from wireless import wifi
+from espressif.esp32net import esp32wifi as wifi_driver
+
+wifi_driver.auto_init()
 streams.serial()
+
+MQTT_NOME_CLIENT = "LorisPanza"
+MQTT_WIFI_SSID = ""
+MQTT_WIFI_PASSWORD = ""
+MQTT_BROKER_SERVICE = "broker.hivemq.com"
+MQTT_TOPIC_NAME = ""
 
 DISTANZA_APERTURA_PORTA = 5.0
 
@@ -22,7 +33,6 @@ SERRATURA_SERVO_CHIUSO = 0
 TEMPO_SERRATURA_CHIUSURA = 10.0
 TEMPO_PORTA_CHIUSURA = 10.0
 TEMPO_TASTIERINO_INSERIMENTO = 5.0
-
 
 state = 0
 
@@ -64,8 +74,6 @@ columns=[D18,D5,D17,D16]
 #Setup Buzzer
 pin_buzzer=D27
 
-
-
 def thread_ultrasonic():
     while True:
         global distanzaUltraSonic 
@@ -76,7 +84,7 @@ def impostaStatoUno():
     
     display.display_password_prompt()
     serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
-    #portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
+    #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
     state = 2
@@ -184,6 +192,37 @@ def leggi_tastierino():
         digitalWrite(columns[j], HIGH)
     return checktastierino
 
+def mqtt_on_message(client, data):
+    message = data["message"]
+    
+
+def connect_wifi():
+    print("Establishing Link...")
+    try:
+        wifi.link(MQTT_WIFI_SSID,wifi.WIFI_WPA2,MQTT_WIFI_PASSWORD)
+    except Exception as e:
+        print("Something wrong while linking.", e)
+
+def connect_broker():
+    try:
+        client = mqtt.Client(MQTT_NOME_CLIENT,True)
+        for retry in range(10):
+            try:
+                client.connect(MQTT_BROKER_SERVICE, 60)
+                break
+            except Exception as e:
+                print("Connecting...\t%d" % retry)
+        print("Connected.")
+        client.subscribe([[MQTT_TOPIC_NAME,2]]) 
+        client.loop(mqtt_on_message)
+    except Exception as e:
+        print(e)
+
+#CONNESSIONE ALLA RETE WIFI
+connect_wifi()
+
+#CONNESSIONE AL BROKER MQTT
+connect_broker()
 
 thread(thread_ultrasonic())
 
@@ -196,6 +235,7 @@ for i in range (4):
 
 pinMode(pin_buzzer,OUTPUT)
 
+
 while True:
     if state == 0:
         pass
@@ -206,7 +246,6 @@ while True:
     elif state == 3:
         avoidance.update()
         display.display_timer(int(timer_porta.get() / 1000))
-        
         if avoidance.obstacle:
             timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
     elif state == 4:
