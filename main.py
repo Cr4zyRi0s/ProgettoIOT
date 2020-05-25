@@ -16,11 +16,12 @@ from espressif.esp32net import esp32wifi as wifi_driver
 wifi_driver.auto_init()
 streams.serial()
 
-MQTT_NOME_CLIENT = "LorisPanza"
-MQTT_WIFI_SSID = ""
-MQTT_WIFI_PASSWORD = ""
-MQTT_BROKER_SERVICE = "broker.hivemq.com"
-MQTT_TOPIC_NAME = ""
+LOCK_PASSWORD="1234"
+
+MQTT_NOME_CLIENT = "esp32device"
+MQTT_WIFI_SSID = "ESP32Hotspot"
+MQTT_WIFI_PASSWORD = "putroccola"
+MQTT_BROKER_SERVICE = "test.mosquitto.org"#"broker.hivemq.com"
 
 DISTANZA_APERTURA_PORTA = 5.0
 
@@ -37,11 +38,12 @@ TEMPO_TASTIERINO_INSERIMENTO = 5.0
 state = 0
 
 #Flags
-access = False
+access_granted = False
+lock_requested = False
 tempo_serratura_finito = False
 tempo_porta_finito = False
 
-display=lcd.SmartDoorLCD(I2C0)
+#display=lcd.SmartDoorLCD(I2C0)
 
 serraturaServo = servo.Servo(D4.PWM,500,2500,2350,20000)
 serraturaServo.attach()
@@ -49,7 +51,7 @@ serraturaServo.attach()
 portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
 portaServo.attach()
 
-ultrasonic = hcsr04(D15, D2)
+ultrasonic = hcsr04.hcsr04(D15, D2)
 distanzaUltraSonic = 0.0
 
 avoidance = avoidance.AvoidanceSensor(D0)
@@ -61,7 +63,6 @@ timer_porta = timers.timer()
 
 #Setup tastierino
 s=""
-password="1234"
 keymap =[
     ['1','2','3','A'],
     ['4','5','6','B'],
@@ -74,19 +75,26 @@ columns=[D18,D5,D17,D16]
 #Setup Buzzer
 pin_buzzer=D27
 
+'''
 def thread_ultrasonic():
     while True:
         global distanzaUltraSonic 
         distanzaUltraSonic = ultrasonic.getDistanceCM()
 
 def impostaStatoUno():
+    global access_granted
+    global state
+    
     state = 1
+    access_granted = False
     
     display.display_password_prompt()
     serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
     #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
+    global state
+    
     state = 2
     
     display.display_access(1)
@@ -94,13 +102,18 @@ def impostaStatoDue():
     timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
     
 def impostaStatoTre():
+    global state
     state = 3
     
     serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
+    global lock_requested
+    global state
+    
     state = 4
+    lock_requested = false
     
     display.display_door_closing()
     portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
@@ -133,9 +146,17 @@ def checkTransizioni():
             timer_serratura.clear()
             impostaStatoTre()
             return
+        if lock_requested:
+            timer_serratura.clear()
+            impostaStatoUno()
+            return
     elif state == 3:
         if tempo_porta_finito:
             tempo_porta_finito = False
+            impostaStatoQuattro()
+            return
+        if lock_requested:
+            timer_porta.clear()
             impostaStatoQuattro()
             return
     elif state == 4:
@@ -148,11 +169,14 @@ def clearBuffer():
     s=""
 
 def codice_corretto():
+    global access_granted
+    access_granted = True
     print("Codice corretto")
     #Suono apertura corretta
     pwm.write(pin_buzzer,2000,1000,MICROS)
     sleep(500)
     pwm.write(pin_buzzer,0,0,MICROS)
+    
 
 def codice_errato():
     print("Codice errato")
@@ -174,7 +198,7 @@ def leggi_tastierino():
                 timer_tastierino.one_shot(TEMPO_TASTIERINO_INSERIMENTO,clearBuffer)
                 if(keymap[i][j]=='#'):
                     print("Stringa inviata:",s)
-                    if(s==password):
+                    if(s==LOCK_PASSWORD):
                         codice_corretto()
                         checktastierino=True
                     else:
@@ -191,11 +215,34 @@ def leggi_tastierino():
                     display.display_password_update(len(s))
         digitalWrite(columns[j], HIGH)
     return checktastierino
-
+'''
 def mqtt_on_message(client, data):
     message = data["message"]
-    
-
+    if message.topic == "unlock" and state == 1:
+        print("Unlock message:\t" + message.payload)
+        if message.payload == LOCK_PASSWORD:
+            access_granted = True
+    elif message.topic == "lock" and (state == 2 or state == 3):
+        print("Lock message:\t" + message.payload)
+        lock_requested = True
+        
+    elif message.topic == "status":
+        print("Status message:\t" + message.payload)
+        status_string = ""
+        if state == 0:
+            status_string = "Configurazione."
+        if state == 1:
+            status_string = "Porta chiusa e Bloccata"
+        if state == 2:
+            status_string = "Porta chiusa e Sbloccata"
+        if state == 3:
+            status_string = "Porta Aperta"
+        if state == 4:
+            status_string = "Porta in Chiusura"
+        #state = (state + 1) % 5
+        client.publish("status_response", status_string)
+        
+        
 def connect_wifi():
     print("Establishing Link...")
     try:
@@ -213,7 +260,7 @@ def connect_broker():
             except Exception as e:
                 print("Connecting...\t%d" % retry)
         print("Connected.")
-        client.subscribe([[MQTT_TOPIC_NAME,2]]) 
+        client.subscribe([["unlock",2],["lock",2],["status",2],["status_response",2]]) 
         client.loop(mqtt_on_message)
     except Exception as e:
         print(e)
@@ -224,6 +271,10 @@ connect_wifi()
 #CONNESSIONE AL BROKER MQTT
 connect_broker()
 
+while True:
+    sleep(500)
+
+'''
 thread(thread_ultrasonic())
 
 for j in range (4):
@@ -240,7 +291,7 @@ while True:
     if state == 0:
         pass
     elif state == 1:
-        access = leggi_tastierino()
+        leggi_tastierino()
     elif state == 2:
         display.display_timer(int(timer_serratura.get() / 1000))
     elif state == 3:
@@ -251,7 +302,7 @@ while True:
     elif state == 4:
         pass
     checkTransizioni()
-
+'''
 
 
 
