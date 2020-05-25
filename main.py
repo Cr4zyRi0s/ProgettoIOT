@@ -5,7 +5,7 @@ import timers
 import streams 
 import pwm
 
-from hcsr04 import hcsr04
+import hcsr04
 import lcd
 import avoidance
 
@@ -41,7 +41,6 @@ portaServo.attach()
 
 ultrasonic = hcsr04(D15, D2)
 distanzaUltraSonic = 0.0
-thread(thread_ultrasonic())
 
 avoidance = avoidance.AvoidanceSensor(D0)
 
@@ -64,33 +63,47 @@ columns=[D18,D5,D17,D16]
 
 #Setup Buzzer
 pin_buzzer=D27
-pinMode(pin_buzzer,OUTPUT)
 
-for j in range (4):
-    pinMode(columns[j],OUTPUT)
-    digitalWrite(columns[j],HIGH)
-for i in range (4):
-    pinMode(rows[i],INPUT_PULLUP)
-    digitalWrite(rows[i],HIGH)
 
+
+def thread_ultrasonic():
+    while True:
+        global distanzaUltraSonic 
+        distanzaUltraSonic = ultrasonic.getDistanceCM()
+
+def impostaStatoUno():
+    state = 1
     
-while True:
-    if state == 0:
-        pass
-    elif state == 1:
-        access = leggi_tastierino()
-    elif state == 2:
-        display.display_timer(int(timer_serratura.get() / 1000))
-    elif state == 3:
-        avoidance.update()
-        display.display_timer(int(timer_porta.get() / 1000))
-        
-        if avoidance.obstacle:
-            timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
-    elif state == 4:
-        pass
-    checkTransizioni()
+    display.display_password_prompt()
+    serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
+    #portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
     
+def impostaStatoDue():
+    state = 2
+    
+    display.display_access(1)
+    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
+    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
+    
+def impostaStatoTre():
+    state = 3
+    
+    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
+    timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
+
+def impostaStatoQuattro():
+    state = 4
+    
+    display.display_door_closing()
+    portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
+
+def notifica_tempo_serratura():
+    global tempo_serratura_finito
+    tempo_serratura_finito = True
+    
+def notifica_tempo_porta():
+    global tempo_porta_finito
+    tempo_porta_finito = True
 
 def checkTransizioni():
     if state == 0:
@@ -105,7 +118,7 @@ def checkTransizioni():
             return
     elif state == 2:
         if tempo_serratura_finito:
-            global tempo_serratura_finito = False
+            tempo_serratura_finito = False
             impostaStatoUno()
             return
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
@@ -114,7 +127,7 @@ def checkTransizioni():
             return
     elif state == 3:
         if tempo_porta_finito:
-            global tempo_porta_finito = False
+            tempo_porta_finito = False
             impostaStatoQuattro()
             return
     elif state == 4:
@@ -150,7 +163,6 @@ def leggi_tastierino():
             if (digitalRead(rows[i])== LOW):
                 while (digitalRead(rows[i])==LOW):
                     sleep(1)
-                #display.display_password_update(len(s))
                 timer_tastierino.one_shot(TEMPO_TASTIERINO_INSERIMENTO,clearBuffer)
                 if(keymap[i][j]=='#'):
                     print("Stringa inviata:",s)
@@ -166,49 +178,41 @@ def leggi_tastierino():
                        x=len(s)
                        s=s[0:x-1]
                     else:
-                       s+=keymap[i][j]
+                       s+=keymap[i][j] 
                     print (s)
+                    display.display_password_update(len(s))
         digitalWrite(columns[j], HIGH)
     return checktastierino
 
-def thread_ultrasonic():
-    while True:
-        global distanzaUltraSonic = ultrasonic.getDistanceCM()
 
-def notifica_tempo_serratura():
-    global tempo_serratura_finito = True
+thread(thread_ultrasonic())
 
-def notifica_tempo_porta():
-    global tempo_porta_finito = True
+for j in range (4):
+    pinMode(columns[j],OUTPUT)
+    digitalWrite(columns[j],HIGH)
+for i in range (4):
+    pinMode(rows[i],INPUT_PULLUP)
+    digitalWrite(rows[i],HIGH)
 
-def impostaStatoUno():
-    state = 1
-    
-    display.display_password_prompt()
-    serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
-    #portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
-    
-def impostaStatoDue():
-    state = 2
-    
-    display.display_access(1)
-    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
-    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
-    
-def impostaStatoTre():
-    state = 3
-    
-    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
-    timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
+pinMode(pin_buzzer,OUTPUT)
 
-def impostaStatoQuattro():
-    state = 4
-    
-    display.display_door_closing()
-    portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
-    
-    
-    
-    
+while True:
+    if state == 0:
+        pass
+    elif state == 1:
+        access = leggi_tastierino()
+    elif state == 2:
+        display.display_timer(int(timer_serratura.get() / 1000))
+    elif state == 3:
+        avoidance.update()
+        display.display_timer(int(timer_porta.get() / 1000))
+        
+        if avoidance.obstacle:
+            timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
+    elif state == 4:
+        pass
+    checkTransizioni()
+
+
 
 
