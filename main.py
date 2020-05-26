@@ -6,7 +6,7 @@ import streams
 import pwm
 
 import hcsr04
-import lcd
+#import lcd
 import avoidance
 
 from mqtt import mqtt
@@ -31,9 +31,9 @@ PORTA_SERVO_CHIUSO = 0
 SERRATURA_SERVO_APERTO = 90
 SERRATURA_SERVO_CHIUSO = 0
 
-TEMPO_SERRATURA_CHIUSURA = 10.0
-TEMPO_PORTA_CHIUSURA = 10.0
-TEMPO_TASTIERINO_INSERIMENTO = 5.0
+TEMPO_SERRATURA_CHIUSURA = 10000
+TEMPO_PORTA_CHIUSURA = 10000
+TEMPO_TASTIERINO_INSERIMENTO = 5000
 
 state = 0
 
@@ -43,13 +43,14 @@ lock_requested = False
 tempo_serratura_finito = False
 tempo_porta_finito = False
 
-display=lcd.SmartDoorLCD(I2C0)
+#display=lcd.SmartDoorLCD(I2C0)
 
-serraturaServo = servo.Servo(D4.PWM,500,2500,2350,20000)
-serraturaServo.attach()
-
-portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
-portaServo.attach()
+#serraturaServo = servo.Servo(D4.PWM,500,2500,800,20000)
+#serraturaServo.attach()
+serraturaServo=pwm.write(D4.PWM,20000,2000,MICROS)
+portaServo=pwm.write(D14.PWM,20000,1000,MICROS)
+#portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
+#portaServo.attach()
 
 ultrasonic = hcsr04.hcsr04(D15, D2)
 distanzaUltraSonic = 0.0
@@ -75,53 +76,55 @@ columns=[D18,D5,D17,D16]
 #Setup Buzzer
 pin_buzzer=D27
 
-
+'''
 def thread_ultrasonic():
     while True:
         global distanzaUltraSonic 
         distanzaUltraSonic = ultrasonic.getDistanceCM()
+        print(distanzaUltraSonic)
         sleep(250)
-
+'''
 def impostaStatoUno():
-    print("Passaggio di stato: % -> 1" % state)
+    print("Passaggio di stato:  -> 1" )
     global access_granted
     global state
     
     state = 1
     access_granted = False
     
-    display.display_password_prompt()
-    serraturaServo.moveToDegree(SERRATURA_SERVO_CHIUSO)
+    #display.display_password_prompt()
+    serraturaServo=pwm.write(D4.PWM,20000,2000,MICROS)
     #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
-    print("Passaggio di stato: % -> 2" % state)
+    print("Passaggio di stato:  -> 2" )
     global state
-    
+    timer_tastierino.clear()
     state = 2
     
-    display.display_access(1)
-    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
+    #display.display_access(1)
+    serraturaServo=pwm.write(D4.PWM,20000,1000,MICROS)
     timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
     
 def impostaStatoTre():
-    print("Passaggio di stato: % -> 3" % state)
+    print("Passaggio di stato:  -> 3" )
+    portaServo=pwm.write(D14.PWM,20000,300,MICROS)
     global state
     state = 3
     
-    serraturaServo.moveToDegree(SERRATURA_SERVO_APERTO)
+    serraturaServo=pwm.write(D4.PWM,20000,1000,MICROS)
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
-    print("Passaggio di stato: % -> 4" % state)
+    print("Passaggio di stato:  -> 4" )
     global lock_requested
     global state
     
     state = 4
     lock_requested = False
     
-    display.display_door_closing()
-    portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
+    #display.display_door_closing()
+    portaServo=pwm.write(D14.PWM,20000,1000,MICROS)
 
 def notifica_tempo_serratura():
     print("Tempo serratura esaurito")
@@ -135,6 +138,7 @@ def notifica_tempo_porta():
 
 def checkTransizioni():
     if state == 0:
+        print(distanzaUltraSonic)
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
             impostaStatoTre()
         else:
@@ -187,41 +191,39 @@ def codice_corretto():
 
 def codice_errato():
     print("Codice errato")
-    display.display_access(0)
+    #display.display_access(0)
     pwm.write(pin_buzzer,10000,5000,MICROS)
     sleep(500)
     pwm.write(pin_buzzer,0,0,MICROS)
     sleep(2000)
-    display.display_clear()
+    #display.display_clear()
 
 def leggi_tastierino():
-    checktastierino=False
-    for j in range (4):
-        digitalWrite(columns[j], LOW)
-        for i in range (4):
-            if (digitalRead(rows[i])== LOW):
-                while (digitalRead(rows[i])==LOW):
-                    sleep(1)
-                timer_tastierino.one_shot(TEMPO_TASTIERINO_INSERIMENTO,clearBuffer)
-                if(keymap[i][j]=='#'):
-                    print("Stringa inviata:",s)
-                    if(s==LOCK_PASSWORD):
-                        codice_corretto()
-                        checktastierino=True
+    while True:
+        for j in range (4):
+            digitalWrite(columns[j], LOW)
+            for i in range (4):
+                if (digitalRead(rows[i])== LOW):
+                    while (digitalRead(rows[i])==LOW):
+                        sleep(1)
+                    timer_tastierino.one_shot(TEMPO_TASTIERINO_INSERIMENTO,clearBuffer)
+                    if(keymap[i][j]=='#'):
+                        print("Stringa inviata:",s)
+                        if(s==LOCK_PASSWORD):
+                            codice_corretto()
+                            return True
+                        else:
+                            codice_errato()
+                        s=""
                     else:
-                        codice_errato()
-                        checktastierino=False
-                    s=""
-                else:
-                    if(keymap[i][j]=='C'):
-                       x=len(s)
-                       s=s[0:x-1]
-                    else:
-                       s+=keymap[i][j] 
-                    print (s)
-                    display.display_password_update(len(s))
-        digitalWrite(columns[j], HIGH)
-    return checktastierino
+                        if(keymap[i][j]=='C'):
+                            x=len(s)
+                            s=s[0:x-1]
+                        else:
+                            s+=keymap[i][j] 
+                        print (s)
+                        #display.display_password_update(len(s))
+            digitalWrite(columns[j], HIGH)
 
 def mqtt_on_message(client, data):
     print("Received MQTT Message")
@@ -250,7 +252,7 @@ def mqtt_on_message(client, data):
         #state = (state + 1) % 5
         client.publish("status_response", status_string)
         
-        
+        '''
 def connect_wifi():
     print("Establishing Link...")
     try:
@@ -279,8 +281,8 @@ connect_wifi()
 
 #CONNESSIONE AL BROKER MQTT
 connect_broker()
-
-thread(thread_ultrasonic())
+'''
+#thread(thread_ultrasonic())
 
 for j in range (4):
     pinMode(columns[j],OUTPUT)
@@ -293,18 +295,27 @@ pinMode(pin_buzzer,OUTPUT)
 
 
 while True:
+    global state
     if state == 0:
+        #print('Sono nello stato 1')
         pass
     elif state == 1:
-        leggi_tastierino()
+        #print('Sono nello stato 1')
+        prova=leggi_tastierino()
     elif state == 2:
-        display.display_timer(int(timer_serratura.get() / 1000))
+        global distanzaUltraSonic
+        distanzaUltraSonic = ultrasonic.getDistanceCM()
+        #display.display_timer(int(timer_serratura.get() / 1000))
+        #print('Sono nello stato 2')
     elif state == 3:
         avoidance.update()
-        display.display_timer(int(timer_porta.get() / 1000))
+        #print('Sono nello stato 3')
+        #display.display_timer(int(timer_porta.get() / 1000))
         if avoidance.obstacle:
             timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
+            print('Ostacolo presente')
     elif state == 4:
+        #print('Sono nello stato 4')
         pass
     checkTransizioni()
 
