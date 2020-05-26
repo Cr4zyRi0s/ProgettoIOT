@@ -43,7 +43,7 @@ lock_requested = False
 tempo_serratura_finito = False
 tempo_porta_finito = False
 
-#display=lcd.SmartDoorLCD(I2C0)
+display=lcd.SmartDoorLCD(I2C0)
 
 serraturaServo = servo.Servo(D4.PWM,500,2500,2350,20000)
 serraturaServo.attach()
@@ -75,13 +75,15 @@ columns=[D18,D5,D17,D16]
 #Setup Buzzer
 pin_buzzer=D27
 
-'''
+
 def thread_ultrasonic():
     while True:
         global distanzaUltraSonic 
         distanzaUltraSonic = ultrasonic.getDistanceCM()
+        sleep(250)
 
 def impostaStatoUno():
+    print("Passaggio di stato: % -> 1" % state)
     global access_granted
     global state
     
@@ -93,6 +95,7 @@ def impostaStatoUno():
     #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
+    print("Passaggio di stato: % -> 2" % state)
     global state
     
     state = 2
@@ -102,6 +105,7 @@ def impostaStatoDue():
     timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
     
 def impostaStatoTre():
+    print("Passaggio di stato: % -> 3" % state)
     global state
     state = 3
     
@@ -109,6 +113,7 @@ def impostaStatoTre():
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
+    print("Passaggio di stato: % -> 4" % state)
     global lock_requested
     global state
     
@@ -119,10 +124,12 @@ def impostaStatoQuattro():
     portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
 
 def notifica_tempo_serratura():
+    print("Tempo serratura esaurito")
     global tempo_serratura_finito
     tempo_serratura_finito = True
     
 def notifica_tempo_porta():
+    print("Tempo porta esaurito")
     global tempo_porta_finito
     tempo_porta_finito = True
 
@@ -134,7 +141,7 @@ def checkTransizioni():
             impostaStatoUno()
         return
     elif state == 1:
-        if access:
+        if access_granted:
             impostaStatoDue()
             return
     elif state == 2:
@@ -215,8 +222,9 @@ def leggi_tastierino():
                     display.display_password_update(len(s))
         digitalWrite(columns[j], HIGH)
     return checktastierino
-'''
+
 def mqtt_on_message(client, data):
+    print("Received MQTT Message")
     message = data["message"]
     if message.topic == "unlock" and state == 1:
         print("Unlock message:\t" + message.payload)
@@ -251,6 +259,7 @@ def connect_wifi():
         print("Something wrong while linking.", e)
 
 def connect_broker():
+    print("Connection to broker")
     try:
         client = mqtt.Client(MQTT_NOME_CLIENT,True)
         for retry in range(10):
@@ -271,10 +280,6 @@ connect_wifi()
 #CONNESSIONE AL BROKER MQTT
 connect_broker()
 
-while True:
-    sleep(500)
-
-'''
 thread(thread_ultrasonic())
 
 for j in range (4):
@@ -302,7 +307,7 @@ while True:
     elif state == 4:
         pass
     checkTransizioni()
-'''
+
 
 
 
