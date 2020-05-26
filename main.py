@@ -113,7 +113,7 @@ def impostaStatoQuattro():
     global state
     
     state = 4
-    lock_requested = false
+    lock_requested = False
     
     display.display_door_closing()
     portaServo.moveToDegree(PORTA_SERVO_CHIUSO)
