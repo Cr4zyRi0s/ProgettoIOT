@@ -47,8 +47,8 @@ tempo_porta_finito = False
 
 #serraturaServo = servo.Servo(D4.PWM,500,2500,800,20000)
 #serraturaServo.attach()
-serraturaServo=pwm.write(D4.PWM,20000,2000,MICROS)
-portaServo=pwm.write(D14.PWM,20000,1000,MICROS)
+pwm.write(D4.PWM,20000,2000,MICROS)
+pwm.write(D14.PWM,20000,1000,MICROS)
 #portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
 #portaServo.attach()
 
@@ -76,55 +76,50 @@ columns=[D18,D5,D17,D16]
 #Setup Buzzer
 pin_buzzer=D27
 
-'''
-def thread_ultrasonic():
-    while True:
-        global distanzaUltraSonic 
-        distanzaUltraSonic = ultrasonic.getDistanceCM()
-        print(distanzaUltraSonic)
-        sleep(250)
-'''
+
 def impostaStatoUno():
-    print("Passaggio di stato:  -> 1" )
+    print("Passaggio di stato: " + str(state) + " -> 1" )
     global access_granted
     global state
+    global lock_requested
     
     state = 1
     access_granted = False
+    lock_requested = False
     
     #display.display_password_prompt()
-    serraturaServo=pwm.write(D4.PWM,20000,2000,MICROS)
+    pwm.write(D4.PWM,20000,2000,MICROS)
     #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
-    print("Passaggio di stato:  -> 2" )
+    print("Passaggio di stato: " + str(state) + " -> 2" )
     global state
     timer_tastierino.clear()
     state = 2
     
-    #display.display_access(1)
-    serraturaServo=pwm.write(D4.PWM,20000,1000,MICROS)
+    display.display_access(1)
+    pwm.write(D4.PWM,20000,1000,MICROS)
     timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
     
 def impostaStatoTre():
-    print("Passaggio di stato:  -> 3" )
+    print("Passaggio di stato: " + str(state) + " -> 3" )
     portaServo=pwm.write(D14.PWM,20000,300,MICROS)
     global state
     state = 3
     
-    serraturaServo=pwm.write(D4.PWM,20000,1000,MICROS)
+    pwm.write(D4.PWM,20000,1000,MICROS)
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
-    print("Passaggio di stato:  -> 4" )
+    print("Passaggio di stato: " + str(state) + "  -> 4" )
     global lock_requested
     global state
     
     state = 4
     lock_requested = False
     
-    #display.display_door_closing()
-    portaServo=pwm.write(D14.PWM,20000,1000,MICROS)
+    display.display_door_closing()
+    pwm.write(D14.PWM,20000,1000,MICROS)
 
 def notifica_tempo_serratura():
     print("Tempo serratura esaurito")
@@ -282,7 +277,6 @@ connect_wifi()
 #CONNESSIONE AL BROKER MQTT
 connect_broker()
 '''
-#thread(thread_ultrasonic())
 
 for j in range (4):
     pinMode(columns[j],OUTPUT)
@@ -297,20 +291,18 @@ pinMode(pin_buzzer,OUTPUT)
 while True:
     global state
     if state == 0:
-        #print('Sono nello stato 1')
-        pass
+        global distanzaUltraSonic
+        distanzaUltraSonic = ultrasonic.getDistanceCM()
     elif state == 1:
         #print('Sono nello stato 1')
         prova=leggi_tastierino()
     elif state == 2:
         global distanzaUltraSonic
         distanzaUltraSonic = ultrasonic.getDistanceCM()
-        #display.display_timer(int(timer_serratura.get() / 1000))
         #print('Sono nello stato 2')
     elif state == 3:
         avoidance.update()
         #print('Sono nello stato 3')
-        #display.display_timer(int(timer_porta.get() / 1000))
         if avoidance.obstacle:
             timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
             print('Ostacolo presente')
