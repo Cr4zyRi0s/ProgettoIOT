@@ -1,6 +1,6 @@
 # Membrane switch
 # Created at 2020-04-28 15:28:37.207189
-from servo import servo
+#from servo import servo
 import timers
 import streams 
 import pwm
@@ -23,13 +23,18 @@ MQTT_WIFI_SSID = "ESP32Hotspot"
 MQTT_WIFI_PASSWORD = "putroccola"
 MQTT_BROKER_SERVICE = "test.mosquitto.org"#"broker.hivemq.com"
 
-DISTANZA_APERTURA_PORTA = 5.0
+DISTANZA_APERTURA_PORTA = 20.0
 
-PORTA_SERVO_APERTO = 90
-PORTA_SERVO_CHIUSO = 0
+Porta=D14.PWM
+PORTA_SERVO_APERTO = 600
+PORTA_SERVO_CHIUSO = 1600
 
-SERRATURA_SERVO_APERTO = 90
-SERRATURA_SERVO_CHIUSO = 0
+Serratura=D4.PWM
+SERRATURA_SERVO_APERTO = 2000
+SERRATURA_SERVO_CHIUSO = 800
+
+
+PERIOD=20000
 
 TEMPO_SERRATURA_CHIUSURA = 10000
 TEMPO_PORTA_CHIUSURA = 10000
@@ -45,12 +50,6 @@ tempo_porta_finito = False
 
 #display=lcd.SmartDoorLCD(I2C0)
 
-#serraturaServo = servo.Servo(D4.PWM,500,2500,800,20000)
-#serraturaServo.attach()
-pwm.write(D4.PWM,20000,2000,MICROS)
-pwm.write(D14.PWM,20000,1000,MICROS)
-#portaServo = servo.Servo(D14.PWM,500,2500,2350,20000)
-#portaServo.attach()
 
 ultrasonic = hcsr04.hcsr04(D15, D2)
 distanzaUltraSonic = 0.0
@@ -88,7 +87,7 @@ def impostaStatoUno():
     lock_requested = False
     
     #display.display_password_prompt()
-    pwm.write(D4.PWM,20000,2000,MICROS)
+    pwm.write(Serratura,PERIOD,SERRATURA_SERVO_CHIUSO,MICROS)
     #portaServo.moveToDegree(PORTA_SERVO_APERTO)
     
 def impostaStatoDue():
@@ -97,17 +96,15 @@ def impostaStatoDue():
     timer_tastierino.clear()
     state = 2
     
-    display.display_access(1)
-    pwm.write(D4.PWM,20000,1000,MICROS)
-    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA, notifica_tempo_serratura)
-    
+    #display.display_access(1)
+    pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
+    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA,notifica_tempo_serratura)
+    print('Timer attivato')
 def impostaStatoTre():
     print("Passaggio di stato: " + str(state) + " -> 3" )
-    portaServo=pwm.write(D14.PWM,20000,300,MICROS)
     global state
     state = 3
-    
-    pwm.write(D4.PWM,20000,1000,MICROS)
+    pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
     timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
@@ -118,8 +115,8 @@ def impostaStatoQuattro():
     state = 4
     lock_requested = False
     
-    display.display_door_closing()
-    pwm.write(D14.PWM,20000,1000,MICROS)
+    #display.display_door_closing()
+    pwm.write(Porta,PERIOD,PORTA_SERVO_CHIUSO,MICROS)
 
 def notifica_tempo_serratura():
     print("Tempo serratura esaurito")
@@ -149,6 +146,7 @@ def checkTransizioni():
             impostaStatoUno()
             return
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
+            print("Distanza serratura: ", distanzaUltraSonic)
             timer_serratura.clear()
             impostaStatoTre()
             return
