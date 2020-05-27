@@ -98,6 +98,7 @@ def impostaStatoDue():
     
     #display.display_access(1)
     pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
+    timer_serratura = timers.timer()
     timer_serratura.start()
     #timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA,notifica_tempo_serratura)
     print('Timer attivato')
@@ -107,6 +108,7 @@ def impostaStatoTre():
     global state
     state = 3
     pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
+    timer_porta = timers.timer()
     timer_porta.start()
     #timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
@@ -152,15 +154,15 @@ def checkTransizioni():
         '''
         if timer_serratura.get() > TEMPO_SERRATURA_CHIUSURA:
             impostaStatoUno()
-            timer_serratura.clear()
+            timer_serratura.destroy()
             return
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
             print("Distanza serratura: ", distanzaUltraSonic)
-            timer_serratura.clear()
+            timer_serratura.destroy()
             impostaStatoTre()
             return
         if lock_requested:
-            timer_serratura.clear()
+            timer_serratura.destroy()
             impostaStatoUno()
             return
     elif state == 3:
@@ -172,10 +174,10 @@ def checkTransizioni():
         '''
         if timer_porta.get() > TEMPO_PORTA_CHIUSURA:
             impostaStatoQuattro()
-            timer_porta.clear()
+            timer_porta.destroy()
             return
         if lock_requested:
-            timer_porta.clear()
+            timer_porta.destroy()
             impostaStatoQuattro()
             return
     
