@@ -98,14 +98,17 @@ def impostaStatoDue():
     
     #display.display_access(1)
     pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
-    timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA,notifica_tempo_serratura)
+    timer_serratura.start()
+    #timer_serratura.one_shot(TEMPO_SERRATURA_CHIUSURA,notifica_tempo_serratura)
     print('Timer attivato')
+    
 def impostaStatoTre():
     print("Passaggio di stato: " + str(state) + " -> 3" )
     global state
     state = 3
     pwm.write(Serratura,PERIOD,SERRATURA_SERVO_APERTO,MICROS)
-    timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
+    timer_porta.start()
+    #timer_porta.one_shot(TEMPO_PORTA_CHIUSURA,notifica_tempo_porta)
 
 def impostaStatoQuattro():
     print("Passaggio di stato: " + str(state) + "  -> 4" )
@@ -141,9 +144,15 @@ def checkTransizioni():
             impostaStatoDue()
             return
     elif state == 2:
+        '''
         if tempo_serratura_finito:
             tempo_serratura_finito = False
             impostaStatoUno()
+            return
+        '''
+        if timer_serratura.get() > TEMPO_SERRATURA_CHIUSURA:
+            impostaStatoUno()
+            timer_serratura.clear()
             return
         if distanzaUltraSonic >= DISTANZA_APERTURA_PORTA:
             print("Distanza serratura: ", distanzaUltraSonic)
@@ -155,14 +164,21 @@ def checkTransizioni():
             impostaStatoUno()
             return
     elif state == 3:
+        '''
         if tempo_porta_finito:
             tempo_porta_finito = False
             impostaStatoQuattro()
+            return
+        '''
+        if timer_porta.get() > TEMPO_PORTA_CHIUSURA:
+            impostaStatoQuattro()
+            timer_porta.clear()
             return
         if lock_requested:
             timer_porta.clear()
             impostaStatoQuattro()
             return
+    
     elif state == 4:
         if distanzaUltraSonic < DISTANZA_APERTURA_PORTA:
             impostaStatoUno()
@@ -242,7 +258,7 @@ def mqtt_on_message(client, data):
             status_string = "Porta Aperta"
         if state == 4:
             status_string = "Porta in Chiusura"
-        #state = (state + 1) % 5
+        
         client.publish("status_response", status_string)
         
         '''
@@ -302,7 +318,8 @@ while True:
         avoidance.update()
         #print('Sono nello stato 3')
         if avoidance.obstacle:
-            timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
+            #timer_porta.one_shot(TEMPO_PORTA_CHIUSURA, notifica_tempo_porta)
+            timer_porta.reset()
             print('Ostacolo presente')
     elif state == 4:
         #print('Sono nello stato 4')
